@@ -5,12 +5,16 @@ import HelloWorldScene from './HelloWorldScene'
 const config = {
 	type: Phaser.AUTO,
 	parent: 'app',
-	width: 800,
-	height: 600,
+	scale: {
+        mode: Phaser.Scale.FIT,
+		autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+        width: 1620,
+        height: 3240
+    },
 	physics: {
 		default: 'arcade',
 		arcade: {
-			gravity: { y: 200 },
+			gravity: { y: 0 },
 		},
 	},
 	scene: [HelloWorldScene],
