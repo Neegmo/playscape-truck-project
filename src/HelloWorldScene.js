@@ -15,13 +15,15 @@ export default class HelloWorldScene extends Phaser.Scene {
   truckLerpStep = 0;
 
   box;
+  boxPath;
   boxGroup = [];
 
   realTruckLoad = 0;
   currentTruckLoad = 0;
   truckLoadText;
+  canUpdateTruckMeter;
 
-  boxLoadSequence = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  boxLoadSequence = [0, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110];
   nextBoxIndex = 0;
 
   boxCount = 0;
@@ -59,13 +61,24 @@ export default class HelloWorldScene extends Phaser.Scene {
     this.createTourButton();
 
     this.reloadValues();
+
+    this.createBoxPath();
   }
 
   update(time, delta) {
-    this.LerpBoxes(delta);
+    // this.StartBoxLoading();
     this.lerpTruck(delta);
     if (this.currentTruckLoad < this.realTruckLoad) {
     }
+  }
+
+  createBoxPath() {
+    this.graphics = this.add.graphics();
+    this.graphics.lineStyle(10, 0xffffff, 1);
+    this.boxPath = new Phaser.Curves.Path(600, 700);
+    this.boxPath.lineTo(600, 1600);
+
+    this.boxPath.draw(this.graphics);
   }
 
   createTruck() {
@@ -86,7 +99,7 @@ export default class HelloWorldScene extends Phaser.Scene {
   }
 
   createBoxCountText() {
-    this.boxCountText = this.add.text(800, 500, "", {
+    this.boxCountText = this.add.text(850, 450, "", {
       fontSize: "90px",
       fontFamily: "troika",
       stroke: "#000000",
@@ -131,13 +144,16 @@ export default class HelloWorldScene extends Phaser.Scene {
   }
 
   SpawnBox() {
-    this.box = this.add.sprite(600, 700, "Box").setScale(0.6, 0.6);
+    // this.box = this.add.sprite(600, 700, "Box").setScale(0.6, 0.6);
+    this.box = this.add
+      .follower(this.boxPath, 600, 700, "Box")
+      .setScale(0.7, 0.7);
     let loadIndex = Phaser.Math.Between(0, this.boxLoadSequence.length - 1);
     this.boxGroup.push({
       gameObject: this.box,
       canLerp: false,
       lerpStep: 0,
-      load: this.boxLoadSequence[loadIndex],
+      weight: this.boxLoadSequence[loadIndex],
     });
 
     this.boxCount++;
@@ -149,48 +165,57 @@ export default class HelloWorldScene extends Phaser.Scene {
     // });
   }
 
-  LerpBoxes(delta) {
-    this.boxGroup.forEach((element, index) => {
-      if (!element.canLerp) return;
+  StartBoxLoading() {
 
-      element.lerpStep += delta / 1000;
+    this.boxCount--;
+    if (this.boxCount <= -1) {
+      this.truckCanLerp = true;
+      this.roundFinished();
+    } else {
 
-      element.gameObject.y = this.lerp(700, 1600, element.lerpStep);
-
-      if (element.lerpStep >= 1) {
-        element.canLerp = false;
-        element.lerpStep = 0;
-        element.gameObject.destroy();
-        this.AddTruckLoad(element.load);
-        if (index === this.boxGroup.length - 1) {
-          this.roundFinished();
-        }
-      }
-    });
-  }
-
-  AddTruckLoad(load) {
-    this.realTruckLoad += load;
-    this.nextBoxIndex++;
-    this.truckLoadText.text = `${this.realTruckLoad}/10kg`;
-  }
-
-  StartTour() {
-    this.LoadBoxes();
-    // Add new truck
-    // recalculate RNG
-    // Show won money
-  }
-
-  LoadBoxes() {
-    for (let i = 0; i < this.boxGroup.length; i++) {
-      this.time.delayedCall(500 * i, () => {
-        this.boxGroup[i].canLerp = true;
-        this.boxCount--;
-        this.boxCountText.text = this.boxCount;
+      this.boxCountText.text = this.boxCount;
+      this.boxGroup[this.boxCount].gameObject.startFollow({
+        duration: 1000,
+        loop: 0,
+        onComplete: () => {
+          this.boxGroup[this.boxCount].gameObject.destroy();
+          this.FillTruckLoadMeter(this.boxGroup[this.boxCount].weight);
+        },
       });
     }
   }
+
+  FillTruckLoadMeter(boxWeight) {
+
+    if(boxWeight === 0) {
+      this.StartBoxLoading();
+    }
+
+    this.realTruckLoad += boxWeight;
+    let loadDifference = this.realTruckLoad - this.currentTruckLoad;
+    for (let i = 0; i < loadDifference; i++) {
+      this.time.delayedCall(50 * i, () => {
+        this.currentTruckLoad ++;
+        
+        this.truckLoadText.text = `${this.currentTruckLoad}/100kg`;
+
+        if(this.currentTruckLoad > 100){
+          this.roundFinished();
+        }
+
+        if(i === loadDifference - 1) {
+
+          this.StartBoxLoading();
+        }
+
+      });
+    }
+  }
+
+  StartTour() {
+    this.StartBoxLoading()
+  }
+
 
   lerpTruck(delta) {
     if (!this.truckCanLerp) return;
@@ -250,7 +275,7 @@ export default class HelloWorldScene extends Phaser.Scene {
   roundFinished() {
     this.boxCountText.text = "";
 
-    if (this.realTruckLoad <= 10) {
+    if (this.currentTruckLoad <= 100) {
       this.add
         .image(750, 700, "Success")
         .setScale(0.7, 0.7)
@@ -259,22 +284,21 @@ export default class HelloWorldScene extends Phaser.Scene {
       this.time.delayedCall(200, () => {
         this.truckCanLerp = true;
 
-      this.time.delayedCall(4000, () => {
+        this.time.delayedCall(4000, () => {
           this.scene.restart();
         });
       });
     } else {
       this.add
-        .image(750, 700, "Overloaded")
-        .setScale(0.6, 0.6)
-        .setOrigin(0.5, 0.5);
-
-        this.time.delayedCall(1500, () => {
-          this.scene.restart();
-        });
+      .image(750, 700, "Overloaded")
+      .setScale(0.6, 0.6)
+      .setOrigin(0.5, 0.5);
+      
+      this.time.delayedCall(1500, () => {
+        this.scene.restart();
+      });
+      // this.scene.pause();
     }
-
-    
   }
 
   lerp(start, end, amt) {
@@ -289,8 +313,9 @@ export default class HelloWorldScene extends Phaser.Scene {
 
     this.realTruckLoad = 0;
     this.currentTruckLoad = 0;
+    this.truckLoadText.text = "0/100kg";
 
-    this.boxLoadSequence = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    this.boxLoadSequence = [0, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110];
     this.nextBoxIndex = 0;
 
     this.boxCount = 0;
