@@ -5,10 +5,16 @@ export default class HelloWorldScene extends Phaser.Scene {
     super("hello-world");
   }
 
+  balance = 1000;
+  balanceText;
+  bet = 10;
+  betText;
+
+  decreaseBetButton;
+  increaseBetButton;
+
   tourButton;
   buyButton;
-
-  bet = 10;
 
   truck;
   truckCanLerp = false;
@@ -28,6 +34,7 @@ export default class HelloWorldScene extends Phaser.Scene {
 
   boxCount = 0;
   boxCountText;
+  deleteBoxButton;
 
   winAmmount = 0;
   winAmmountText;
@@ -45,10 +52,13 @@ export default class HelloWorldScene extends Phaser.Scene {
     this.load.image("Box", "Box.png");
     this.load.image("Success", "Success.png");
     this.load.image("Overloaded", "Overloaded.png");
+    this.load.image("ArrowLeft", "ArrowLeft.png");
+    this.load.image("ArrowRight", "ArrowRight.png");
+    this.load.image("DeleteBoxButton", "DeleteBoxButton.png");
   }
 
   create() {
-    this.add.image(0, 0, "BG").setOrigin(0, 0);
+    this.add.image(-100, -100, "BG").setScale(1.1, 1.1).setOrigin(0, 0);
     this.add.image(0, 3240, "UI").setOrigin(0, 1);
 
     this.createTruck();
@@ -63,6 +73,12 @@ export default class HelloWorldScene extends Phaser.Scene {
     this.reloadValues();
 
     this.createBoxPath();
+
+    this.createUIText();
+
+    this.createBetButtons();
+
+    this.CreatDeleteBoxButton();
   }
 
   update(time, delta) {
@@ -79,6 +95,50 @@ export default class HelloWorldScene extends Phaser.Scene {
     this.boxPath.lineTo(600, 1600);
 
     this.boxPath.draw(this.graphics);
+  }
+
+  createUIText() {
+    this.betText = this.add.text(410, 3000, `${this.bet}`, {
+      fontSize: "90px",
+      fontFamily: "troika",
+      stroke: "#000000",
+      strokeThickness: 15,
+    });
+
+    this.balanceText = this.add.text(1090, 3000, `${this.balance}`, {
+      fontSize: "90px",
+      fontFamily: "troika",
+      stroke: "#000000",
+      strokeThickness: 15,
+    });
+  }
+
+  createBetButtons() {
+    this.decreaseBetButton = this.add
+      .image(300, 3070, "ArrowLeft")
+      .setScale(0.5, 0.5);
+    this.decreaseBetButton.setInteractive();
+    this.decreaseBetButton.on("pointerdown", () => {
+      this.ChangeBet(false);
+    });
+
+    this.increaseBetButton = this.add
+      .image(650, 3070, "ArrowRight")
+      .setScale(0.5, 0.5);
+    this.increaseBetButton.setInteractive();
+    this.increaseBetButton.on("pointerdown", () => {
+      this.ChangeBet(true);
+    });
+  }
+
+  ChangeBet(increase) {
+    if (increase) {
+      this.bet += 10;
+      this.betText.text = `${this.bet}`;
+    } else {
+      this.bet -= 10;
+      this.betText.text = `${this.bet}`;
+    }
   }
 
   createTruck() {
@@ -143,8 +203,13 @@ export default class HelloWorldScene extends Phaser.Scene {
     // If cargo bar full DEFEAT
   }
 
+  ChangeBalance(ammount) {
+    this.balance += ammount;
+    this.balanceText.text = `${this.balance}`;
+  }
+
   SpawnBox() {
-    // this.box = this.add.sprite(600, 700, "Box").setScale(0.6, 0.6);
+    this.ChangeBalance(-this.bet);
     this.box = this.add
       .follower(this.boxPath, 600, 700, "Box")
       .setScale(0.7, 0.7);
@@ -160,19 +225,38 @@ export default class HelloWorldScene extends Phaser.Scene {
 
     this.boxCountText.text = this.boxCount;
 
-    // this.time.delayedCall(400, () => {
-    //   this.boxCanLerp = true;
-    // });
+    this.deleteBoxButton.setAlpha(1);
+  }
+
+  CreatDeleteBoxButton() {
+    this.deleteBoxButton = this.add
+      .image(770, 550, "DeleteBoxButton")
+      .setScale(2, 2);
+    this.deleteBoxButton.setInteractive();
+    this.deleteBoxButton.on("pointerdown", () => {
+      this.DeleteBox()
+    });
+    this.deleteBoxButton.setDepth(8);
+
+    this.deleteBoxButton.setAlpha(0);
+  }
+
+  DeleteBox() {
+    this.boxGroup[this.boxGroup.length-1].gameObject.destroy();
+    this.boxGroup.pop();
+    this.boxCount--;
+    this.boxCountText.text = this.boxCount;
+    if(this.boxCount === 0) {
+      this.deleteBoxButton.setAlpha(0);
+    }
   }
 
   StartBoxLoading() {
-
     this.boxCount--;
     if (this.boxCount <= -1) {
       this.truckCanLerp = true;
       this.roundFinished();
     } else {
-
       this.boxCountText.text = this.boxCount;
       this.boxGroup[this.boxCount].gameObject.startFollow({
         duration: 1000,
@@ -186,8 +270,7 @@ export default class HelloWorldScene extends Phaser.Scene {
   }
 
   FillTruckLoadMeter(boxWeight) {
-
-    if(boxWeight === 0) {
+    if (boxWeight === 0) {
       this.StartBoxLoading();
     }
 
@@ -195,27 +278,24 @@ export default class HelloWorldScene extends Phaser.Scene {
     let loadDifference = this.realTruckLoad - this.currentTruckLoad;
     for (let i = 0; i < loadDifference; i++) {
       this.time.delayedCall(50 * i, () => {
-        this.currentTruckLoad ++;
-        
+        this.currentTruckLoad++;
+
         this.truckLoadText.text = `${this.currentTruckLoad}/100kg`;
 
-        if(this.currentTruckLoad > 100){
+        if (this.currentTruckLoad > 100) {
           this.roundFinished();
         }
 
-        if(i === loadDifference - 1) {
-
+        if (i === loadDifference - 1) {
           this.StartBoxLoading();
         }
-
       });
     }
   }
 
   StartTour() {
-    this.StartBoxLoading()
+    this.StartBoxLoading();
   }
-
 
   lerpTruck(delta) {
     if (!this.truckCanLerp) return;
@@ -268,8 +348,9 @@ export default class HelloWorldScene extends Phaser.Scene {
         break;
     }
 
-    this.winAmmount = multiplier * this.bet;
+    this.winAmmount = multiplier * this.bet * this.boxGroup.length;
     this.winAmmountText.text = `Win: ${this.winAmmount}`;
+    this.ChangeBalance(this.winAmmount);
   }
 
   roundFinished() {
@@ -290,10 +371,10 @@ export default class HelloWorldScene extends Phaser.Scene {
       });
     } else {
       this.add
-      .image(750, 700, "Overloaded")
-      .setScale(0.6, 0.6)
-      .setOrigin(0.5, 0.5);
-      
+        .image(750, 700, "Overloaded")
+        .setScale(0.6, 0.6)
+        .setOrigin(0.5, 0.5);
+
       this.time.delayedCall(1500, () => {
         this.scene.restart();
       });
